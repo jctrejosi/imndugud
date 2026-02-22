@@ -28,8 +28,9 @@ def index():
 def get_traffic():
     sql = """
         SELECT id, method, status_code, url, host, path,
-               ts_start, duration, bytes_sent, bytes_received,
-               content_type, protocol
+                request_body, response_body,
+                ts_start, duration, bytes_sent, bytes_received,
+                content_type, protocol
         FROM requests
         ORDER BY ts_start DESC
         LIMIT 1000
