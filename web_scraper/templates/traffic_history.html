@@ -53,6 +53,14 @@
 </nav>
 
 <main class="max-w-7xl mx-auto p-6">
+    <div class="flex gap-4 mb-6 border-b border-slate-200">
+        <button onclick="switchMainTab('http')" id="main-tab-http" class="pb-3 px-2 text-sm font-bold border-b-2 border-blue-600 text-blue-600">
+            <div class="flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4"></i> HTTP Traffic</div>
+        </button>
+        <button onclick="switchMainTab('ws')" id="main-tab-ws" class="pb-3 px-2 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600">
+            <div class="flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4"></i> WebSockets</div>
+        </button>
+    </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div class="relative">
             <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
@@ -68,7 +76,7 @@
         </div>
     </div>
 
-    <div class="section-card shadow-sm border-slate-200">
+    <div id="section-http" class="section-card shadow-sm border-slate-200">
         <table id="apiTable" class="w-full text-left text-sm">
             <thead class="bg-slate-50/50 text-slate-400 uppercase text-[10px] font-bold tracking-widest">
                 <tr>
@@ -77,6 +85,21 @@
                     <th class="px-6 py-4 border-b border-slate-100">Status</th>
                     <th class="px-6 py-4 border-b border-slate-100">Endpoint</th>
                     <th class="px-6 py-4 border-b border-slate-100">Latency</th>
+                    <th class="px-6 py-4 border-b border-slate-100 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+
+    <div id="section-ws" class="section-card shadow-sm border-slate-200 hidden">
+        <table id="wsTable" class="w-full text-left text-sm">
+            <thead class="bg-slate-50/50 text-slate-400 uppercase text-[10px] font-bold tracking-widest">
+                <tr>
+                    <th class="px-6 py-4 border-b border-slate-100">Timestamp</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Direction</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Origin / Flow</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Message Preview</th>
                     <th class="px-6 py-4 border-b border-slate-100 text-right">Action</th>
                 </tr>
             </thead>
@@ -267,6 +290,76 @@
 
     function copyText(txt) {
         navigator.clipboard.writeText(txt).then(() => alert('Copiado'));
+    }
+
+    let wsTable;
+
+    function switchMainTab(type) {
+        if (type === 'http') {
+            $('#section-http').removeClass('hidden');
+            $('#section-ws').addClass('hidden');
+            $('#main-tab-http').addClass('border-blue-600 text-blue-600').removeClass('border-transparent text-slate-400');
+            $('#main-tab-ws').addClass('border-transparent text-slate-400').removeClass('border-blue-600 text-blue-600');
+        } else {
+            $('#section-http').addClass('hidden');
+            $('#section-ws').removeClass('hidden');
+            $('#main-tab-ws').addClass('border-blue-600 text-blue-600').removeClass('border-transparent text-slate-400');
+            $('#main-tab-http').addClass('border-transparent text-slate-400').removeClass('border-blue-600 text-blue-600');
+            if (!$.fn.DataTable.isDataTable('#wsTable')) initWsTable();
+        }
+    }
+
+    function initWsTable() {
+        wsTable = $('#wsTable').DataTable({
+            ajax: '/api/ws',
+            columns: [
+                { data: 'hora', className: 'px-6 py-4 font-mono text-[11px] text-slate-400' },
+                { data: 'from_client', render: data => data ? 
+                    '<span class="text-amber-600 font-bold">↑ SENT</span>' : 
+                    '<span class="text-emerald-600 font-bold">↓ RECV</span>' 
+                },
+                { data: 'flow_url', className: 'px-6 py-4 max-w-xs truncate text-slate-500 italic text-[11px]' },
+                { data: 'content', className: 'px-6 py-4 max-w-md truncate font-mono text-[11px]', 
+                render: data => data.replace(/</g, "&lt;") },
+                { data: 'id', className: 'text-right px-6', 
+                render: id => `<button onclick="showWsDetail('${id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs">VIEW MSG</button>` 
+                }
+            ],
+            order: [[0, 'desc']],
+            dom: 'rtip',
+            pageLength: 15
+        });
+        setInterval(() => wsTable.ajax.reload(null, false), 3000);
+    }
+
+    function showWsDetail(id) {
+        const panel = $('#detailPanel');
+        const overlay = $('#overlay');
+        panel.removeClass('hidden'); overlay.removeClass('hidden');
+        setTimeout(() => { panel.removeClass('translate-x-full'); overlay.addClass('opacity-100'); }, 10);
+
+        // Adaptar UI del panel para WS
+        $('#tab-headers, #tab-cookies').addClass('hidden'); // Ocultar tabs irrelevantes para WS
+        $('#detailStatus').text('WEBSOCKET').attr('class', 'px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700');
+        switchTab('body'); // Ir directo al contenido
+
+        $.get('/api/ws_detail/' + id, function(data) {
+            $('#detailMethodUrl').text(data.from_client ? 'Client Message' : 'Server Message');
+            $('#detailId').text(data.flow_url);
+            setFormattedJson('#modalResponse', data.content);
+            $('#modalRequest').html('<span class="text-slate-300">// WebSocket message has no request body</span>');
+        });
+    }
+
+    // Modifica tu closeDetail actual para resetear la visibilidad de los tabs
+    function closeDetail() {
+        $('#detailPanel').addClass('translate-x-full');
+        $('#overlay').removeClass('opacity-100');
+        setTimeout(() => { 
+            $('#detailPanel').addClass('hidden'); 
+            $('#overlay').addClass('hidden');
+            $('#tab-headers, #tab-cookies').removeClass('hidden'); // Resetear para HTTP
+        }, 300);
     }
 </script>
 </body>
