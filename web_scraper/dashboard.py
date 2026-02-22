@@ -20,7 +20,8 @@ def query_db(query, args=(), one=False):
 
 @app.route('/')
 def index():
-    return render_template('history_api.html')
+    # Asegúrate de que el nombre del archivo coincida con tu .html
+    return render_template('traffic_history.html')
 
 @app.route('/api/traffic')
 def get_traffic():
@@ -31,17 +32,38 @@ def get_traffic():
 @app.route('/api/detail/<req_id>')
 def get_detail(req_id):
     row = query_db("SELECT * FROM requests WHERE id = ?", (req_id,), one=True)
-    return jsonify(dict(row)) if row else (jsonify({"error": "404"}), 404)
+    if not row:
+        return jsonify({"error": "404"}), 404
+    
+    data = dict(row)
+    body = data.get('response_body', '')
+
+    # Lógica para detectar cifrado o formato
+    is_json = False
+    is_encrypted = False
+
+    if body:
+        body_trimmed = body.strip()
+        # Verificar si es JSON
+        if (body_trimmed.startswith('{') and body_trimmed.endswith('}')) or \
+           (body_trimmed.startswith('[') and body_trimmed.endswith(']')):
+            is_json = True
+        # Verificar si parece cifrado (muchos caracteres alfanuméricos sin espacios, terminando en ==, etc)
+        elif len(body_trimmed) > 50 and ' ' not in body_trimmed:
+            is_encrypted = True
+
+    data['meta'] = {
+        "is_json": is_json,
+        "is_encrypted": is_encrypted,
+        "length": len(body)
+    }
+    
+    return jsonify(data)
 
 def open_browser():
-    """Abre el navegador en la dirección del servidor local."""
     webbrowser.open_new("http://127.0.0.1:5000")
 
 if __name__ == '__main__':
-    # El check de WERKZEUG_RUN_MAIN evita que se abra dos veces 
-    # cuando Flask está en modo debug.
     if not os.environ.get("WERKZEUG_RUN_MAIN"):
         Timer(1.5, open_browser).start()
-    
-    print(f"🚀 Dashboard manual corriendo en http://127.0.0.1:5000")
     app.run(debug=True, port=5000)

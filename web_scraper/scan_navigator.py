@@ -26,7 +26,7 @@ PROFILE_DIR = (ROOT / "chrome_session").resolve()
 # --- Addon de mitmproxy (Misma lógica) ---
 ADDON_CODE = r'''
 from mitmproxy import http, websocket
-import sqlite3, os, time, uuid
+import sqlite3, os, time, uuid, json
 
 DB_PATH = os.environ.get("MITM_DB_PATH", "traffic.db")
 _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -34,24 +34,36 @@ _cur = _conn.cursor()
 
 def response(flow: http.HTTPFlow):
     rid = str(uuid.uuid4())
-    # Usamos flow.request.timestamp_start que es más preciso
-    _cur.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", 
+    
+    # Intentar extraer el contenido de la respuesta
+    content = ""
+    if flow.response and flow.response.content:
+        try:
+            # Si es JSON, lo decodificamos y re-formateamos para que sea legible
+            if "application/json" in flow.response.headers.get("content-type", "").lower():
+                data = json.loads(flow.response.get_text())
+                content = json.dumps(data, indent=2)
+            else:
+                content = flow.response.get_text()
+        except:
+            content = "[Contenido Binario o No Decodificable]"
+
+    _cur.execute("INSERT INTO requests (id, ts_start, ts_end, method, url, status_code, response_body) VALUES (?,?,?,?,?,?,?)", 
                  (rid, flow.request.timestamp_start, time.time(), 
                   flow.request.method, flow.request.pretty_url, 
-                  flow.response.status_code if flow.response else None))
+                  flow.response.status_code if flow.response else None,
+                  content))
     _conn.commit()
 
 def websocket_message(flow: http.HTTPFlow):
     last_msg = flow.websocket.messages[-1]
     direction = "CLIENT_TO_SERVER" if last_msg.from_client else "SERVER_TO_CLIENT"
-    
     try:
         content = last_msg.content.decode('utf-8')
     except:
         content = last_msg.content.hex()
 
     is_binary = 1 if last_msg.type == websocket.MessageType.BINARY else 0
-    
     _cur.execute("INSERT INTO ws_messages VALUES (?,?,?,?,?)",
                  (str(flow.id), time.time(), direction, content, is_binary))
     _conn.commit()
@@ -65,19 +77,25 @@ def is_admin():
         return False
 
 def init_db():
+    # Intentamos borrar la DB si existe para asegurar el nuevo esquema
+    if DB_PATH.exists():
+        try:
+            # Cerramos cualquier conexión remanente si fuera necesario
+            # y borramos el archivo
+            os.remove(DB_PATH) 
+            print("🗑️ Base de datos antigua eliminada. Creando nuevo esquema con 'response_body'...")
+        except PermissionError:
+            print("⚠️ ADVERTENCIA: No se pudo borrar la DB (está en uso).")
+            print("💡 CIERRA el Dashboard y vuelve a intentar.")
+            sys.exit(1) # Es mejor parar aquí que tener errores de columna
+
     conn = sqlite3.connect(DB_PATH)
-    # Tabla para peticiones HTTP normales
+    # Esquema definitivo
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS requests (
+        CREATE TABLE requests (
             id TEXT PRIMARY KEY, ts_start REAL, ts_end REAL,
-            method TEXT, url TEXT, status_code INTEGER
-        )
-    """)
-    # Tabla para los mensajes internos (WebSockets)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS ws_messages (
-            id TEXT, ts REAL, direction TEXT,
-            content TEXT, is_binary INTEGER
+            method TEXT, url TEXT, status_code INTEGER,
+            response_body TEXT
         )
     """)
     conn.commit()
