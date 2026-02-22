@@ -61,7 +61,6 @@ service-identity==24.2.0
 six==1.17.0
 smmap==5.0.2
 sortedcontainers==2.4.0
-streamlit==1.54.0
 tenacity==9.1.4
 toml==0.10.2
 tornado==6.5.2

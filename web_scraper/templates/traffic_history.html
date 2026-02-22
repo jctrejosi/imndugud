@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>imnd ugud | Traffic Analyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <style>
-        .dataTables_wrapper .dataTables_filter { display: none; } /* Ocultamos el buscador por defecto */
+        .dataTables_wrapper .dataTables_filter { display: none; }
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
             background: #3b82f6 !important; color: white !important; border: none !important; border-radius: 0.5rem;
         }
@@ -15,171 +15,308 @@
         pre::-webkit-scrollbar { width: 6px; height: 6px; }
         pre::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         mark { background-color: #fbbf24; color: #000; border-radius: 2px; }
-        .filter-input {
-            transition: all 0.2s;
-            border: 1px solid #e2e8f0;
-        }
-        .filter-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
+        .filter-input { transition: all 0.2s; border: 1px solid #e2e8f0; }
+        .filter-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+        .k-v { display:flex; gap:0.5rem; align-items:center; }
+        .badge { padding:0.2rem .5rem; border-radius:.35rem; font-size:.7rem; font-weight:700; }
+        .meta-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:.5rem; }
+        .section { border:1px solid #e6edf3; padding:.6rem; border-radius:.6rem; background:#fff; }
+        .small { font-size:.75rem; color:#475569; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace; font-size: .9rem; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen font-sans">
 
-    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 sticky top-0 z-40">
-        <div class="flex justify-between items-center max-w-7xl mx-auto">
-            <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-200">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                </div>
-                <h1 class="text-xl font-bold tracking-tight text-slate-800">Traffic Analyzer</h1>
+<nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 sticky top-0 z-40">
+    <div class="flex justify-between items-center max-w-7xl mx-auto">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-200">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
             </div>
-            <div id="status-indicator" class="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-                LIVE CAPTURE
-            </div>
+            <h1 class="text-xl font-bold tracking-tight text-slate-800">Traffic Analyzer</h1>
         </div>
-    </nav>
-
-    <main class="max-w-7xl mx-auto p-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Filtrar por URL / Endpoint</label>
-                <input type="text" id="filterUrl" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: /api/v1/user...">
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <label class="text-[10px] font-bold text-amber-500 uppercase mb-2 block">Buscar en Contenido Request</label>
-                <input type="text" id="filterRequest" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: user_id, token...">
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <label class="text-[10px] font-bold text-emerald-500 uppercase mb-2 block">Buscar en Contenido Response</label>
-                <input type="text" id="filterResponse" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: success, balance...">
-            </div>
+        <div id="status-indicator" class="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+            LIVE CAPTURE
         </div>
+    </div>
+</nav>
 
-        <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-200 overflow-hidden">
-            <div class="p-6">
-                <table id="apiTable" class="w-full text-left text-sm border-separate border-spacing-y-0">
-                    <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest">
-                        <tr>
-                            <th class="px-4 py-4 border-b border-slate-100">Timestamp</th>
-                            <th class="px-4 py-4 border-b border-slate-100">Method</th>
-                            <th class="px-4 py-4 border-b border-slate-100">Status</th>
-                            <th class="px-4 py-4 border-b border-slate-100">Endpoint</th>
-                            <th class="px-4 py-4 border-b border-slate-100 text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+<main class="max-w-7xl mx-auto p-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Filtrar por URL / Endpoint</label>
+            <input type="text" id="filterUrl" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: /api/v1/user...">
         </div>
-    </main>
-
-    <div id="detailPanel" class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 border-l border-slate-200 hidden">
-        <div class="h-full flex flex-col">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <div><h2 class="text-lg font-bold text-slate-800 tracking-tight">Request Details</h2><p class="text-[10px] text-slate-400 font-mono uppercase mt-1" id="requestIdLabel"></p></div>
-                <button onclick="closeDetail()" class="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-            </div>
-            <div class="p-6 overflow-y-auto flex-1 space-y-6">
-                <div id="typeBadges" class="flex flex-wrap gap-2"></div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">API Endpoint</label>
-                    <p id="modalUrl" class="text-xs font-mono text-blue-700 break-all bg-blue-50/50 p-3 rounded-xl border border-blue-100"></p>
-                </div>
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center"><label class="text-[10px] font-black text-amber-500 uppercase tracking-tighter italic">Request Body</label><button onclick="copyRaw('modalRequest')" class="text-[9px] bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200 font-bold hover:bg-amber-100 uppercase">Copiar</button></div>
-                    <pre id="modalRequest" class="text-[11px] bg-slate-800 text-amber-200 p-4 rounded-xl font-mono max-h-[250px] border border-slate-700 overflow-y-auto"></pre>
-                </div>
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center"><label class="text-[10px] font-black text-emerald-500 uppercase tracking-tighter italic">Response Body</label><button onclick="copyRaw('modalResponse')" class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded border border-emerald-200 font-bold hover:bg-emerald-100 uppercase">Copiar</button></div>
-                    <pre id="modalResponse" class="text-[11px] bg-slate-900 text-emerald-400 p-4 rounded-xl font-mono max-h-[400px] border border-slate-800 shadow-inner overflow-y-auto"></pre>
-                </div>
-            </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <label class="text-[10px] font-bold text-amber-500 uppercase mb-2 block">Buscar en Contenido Request</label>
+            <input type="text" id="filterRequest" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: user_id, token...">
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <label class="text-[10px] font-bold text-emerald-500 uppercase mb-2 block">Buscar en Contenido Response</label>
+            <input type="text" id="filterResponse" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: success, balance...">
         </div>
     </div>
 
-    <div id="overlay" onclick="closeDetail()" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+    <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-200 overflow-hidden">
+        <div class="p-6">
+            <table id="apiTable" class="w-full text-left text-sm border-separate border-spacing-y-0">
+                <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest">
+                    <tr>
+                        <th class="px-4 py-4 border-b border-slate-100">Timestamp</th>
+                        <th class="px-4 py-4 border-b border-slate-100">Method</th>
+                        <th class="px-4 py-4 border-b border-slate-100">Status</th>
+                        <th class="px-4 py-4 border-b border-slate-100">Endpoint</th>
+                        <th class="px-4 py-4 border-b border-slate-100 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</main>
 
-    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<!-- detalle modal ampliado -->
+<div id="detailPanel" class="fixed inset-y-0 right-0 w-full max-w-3xl bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 border-l border-slate-200 hidden">
+    <div class="h-full flex flex-col">
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div>
+                <h2 class="text-lg font-bold text-slate-800 tracking-tight">Request Details</h2>
+                <p class="text-[11px] text-slate-400 font-mono mt-1" id="requestIdLabel"></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="detailStatus" class="text-sm font-bold"></div>
+                <button onclick="closeDetail()" class="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
 
-    <script>
-        let table;
-        let originalTexts = { modalRequest: "", modalResponse: "" };
+        <div class="p-6 overflow-y-auto flex-1 space-y-5">
+            <div class="meta-grid">
+                <div class="section">
+                    <div class="k-v"><span class="small">method</span><div class="badge bg-slate-100 text-slate-700 ml-auto" id="metaMethod"></div></div>
+                    <div class="k-v mt-2"><span class="small">host</span><div class="mono ml-auto" id="metaHost"></div></div>
+                    <div class="k-v mt-2"><span class="small">path</span><div class="mono ml-auto" id="metaPath"></div></div>
+                    <div class="k-v mt-2"><span class="small">protocol</span><div class="ml-auto" id="metaProto"></div></div>
+                </div>
 
-        $(document).ready(function() {
-            // Lógica de filtrado personalizado para Request y Response
-            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-                const row = table.row(dataIndex).data();
-                const filterUrl = $('#filterUrl').val().toLowerCase();
-                const filterReq = $('#filterRequest').val().toLowerCase();
-                const filterRes = $('#filterResponse').val().toLowerCase();
+                <div class="section">
+                    <div class="k-v"><span class="small">timestamp start</span><div class="mono ml-auto" id="metaTs"></div></div>
+                    <div class="k-v mt-2"><span class="small">duration</span><div class="ml-auto" id="metaDuration"></div></div>
+                    <div class="k-v mt-2"><span class="small">bytes sent</span><div class="mono ml-auto" id="metaSent"></div></div>
+                    <div class="k-v mt-2"><span class="small">bytes recv</span><div class="mono ml-auto" id="metaRecv"></div></div>
+                </div>
 
-                const matchUrl = row.url.toLowerCase().includes(filterUrl);
-                const matchReq = (row.request_body || "").toLowerCase().includes(filterReq);
-                const matchRes = (row.response_body || "").toLowerCase().includes(filterRes);
+                <div class="section">
+                    <div class="k-v"><span class="small">client</span><div class="mono ml-auto" id="metaClient"></div></div>
+                    <div class="k-v mt-2"><span class="small">server</span><div class="mono ml-auto" id="metaServer"></div></div>
+                    <div class="k-v mt-2"><span class="small">content-type</span><div class="ml-auto" id="metaType"></div></div>
+                    <div class="k-v mt-2"><span class="small">protocol</span><div class="ml-auto" id="metaProto2"></div></div>
+                </div>
+            </div>
 
-                return matchUrl && matchReq && matchRes;
-            });
+            <div class="section">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold">Headers</h3>
+                    <div class="flex gap-2">
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyReqHeaders">Copiar request</button>
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyResHeaders">Copiar response</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="small mb-1">request headers</div>
+                        <pre id="reqHeaders" class="mono section max-h-48 overflow-auto"></pre>
+                    </div>
+                    <div>
+                        <div class="small mb-1">response headers</div>
+                        <pre id="resHeaders" class="mono section max-h-48 overflow-auto"></pre>
+                    </div>
+                </div>
+            </div>
 
-            table = $('#apiTable').DataTable({
-                ajax: '/api/traffic',
-                columns: [
-                    { data: 'hora', className: 'px-4 py-4 text-slate-500 font-mono text-[11px]' },
-                    { data: 'method', render: data => {
-                        const style = data === 'POST' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
-                        return `<span class="px-2 py-1 rounded-md text-[9px] font-black tracking-widest ${style}">${data}</span>`;
-                    }},
-                    { data: 'status_code', render: data => {
-                        const color = data >= 200 && data < 300 ? 'text-emerald-600' : 'text-rose-500';
-                        return `<span class="font-bold font-mono ${color}">${data || '---'}</span>`;
-                    }},
-                    { data: 'url', className: 'px-4 py-4 max-w-[300px] md:max-w-md truncate font-medium text-slate-600' },
-                    { data: 'id', className: 'text-center', render: data => `<button onclick="showDetail('${data}')" class="bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-tighter">Inspect</button>` }
-                ],
-                order: [[0, 'desc']],
-                pageLength: 20,
-                dom: 'rtip', // Ocultamos el buscador nativo
-                language: { info: "Mostrando _START_ a _END_ de _TOTAL_ peticiones" }
-            });
+            <div class="section">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold">Cookies</h3>
+                    <div class="flex gap-2">
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyReqCookies">Copiar cookies req</button>
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyResCookies">Copiar cookies res</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <pre id="reqCookies" class="mono section max-h-32 overflow-auto"></pre>
+                    <pre id="resCookies" class="mono section max-h-32 overflow-auto"></pre>
+                </div>
+            </div>
 
-            // Disparar filtrado al escribir en los inputs de arriba
-            $('#filterUrl, #filterRequest, #filterResponse').on('keyup', function() {
-                table.draw();
-            });
+            <div class="section">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold">Request body</h3>
+                    <div class="flex gap-2">
+                        <button class="px-2 py-1 text-xs bg-amber-50 text-amber-700 rounded" id="btnCopyReqBody">Copiar</button>
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnPrettyReq">Formatear JSON</button>
+                    </div>
+                </div>
+                <pre id="modalRequest" class="mono section max-h-44 overflow-auto"></pre>
+            </div>
 
-            setInterval(() => table.ajax.reload(null, false), 5000);
+            <div class="section">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold">Response body</h3>
+                    <div class="flex gap-2">
+                        <button class="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded" id="btnCopyResBody">Copiar</button>
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnPrettyRes">Formatear JSON</button>
+                    </div>
+                </div>
+                <pre id="modalResponse" class="mono section max-h-72 overflow-auto"></pre>
+            </div>
+
+            <div class="section small">
+                <div class="font-bold mb-2">Raw / metadata</div>
+                <pre id="rawMeta" class="mono max-h-36 overflow-auto"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="overlay" onclick="closeDetail()" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+<script>
+    let table;
+    let currentDetail = null;
+    $(document).ready(function() {
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+            const row = table.row(dataIndex).data();
+            const filterUrl = $('#filterUrl').val().toLowerCase();
+            const filterReq = $('#filterRequest').val().toLowerCase();
+            const filterRes = $('#filterResponse').val().toLowerCase();
+            const matchUrl = (row.url || "").toLowerCase().includes(filterUrl);
+            const matchReq = (row.request_body || "").toLowerCase().includes(filterReq);
+            const matchRes = (row.response_body || "").toLowerCase().includes(filterRes);
+            return matchUrl && matchReq && matchRes;
         });
 
-        function showDetail(id) {
-            const panel = $('#detailPanel');
-            const overlay = $('#overlay');
-            panel.removeClass('hidden'); overlay.removeClass('hidden');
-            setTimeout(() => { panel.addClass('translate-x-0'); overlay.addClass('opacity-100'); }, 10);
+        table = $('#apiTable').DataTable({
+            ajax: '/api/traffic',
+            columns: [
+                { data: 'hora', className: 'px-4 py-4 text-slate-500 font-mono text-[11px]' },
+                { data: 'method', render: data => {
+                    const style = data === 'POST' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+                    return `<span class="px-2 py-1 rounded-md text-[9px] font-black tracking-widest ${style}">${data}</span>`;
+                }},
+                { data: 'status_code', render: data => {
+                    const color = data >= 200 && data < 300 ? 'text-emerald-600' : 'text-rose-500';
+                    return `<span class="font-bold font-mono ${color}">${data || '---'}</span>`;
+                }},
+                { data: 'url', className: 'px-4 py-4 max-w-[300px] md:max-w-md truncate font-medium text-slate-600' },
+                { data: 'id', className: 'text-center', render: data => `<button onclick="showDetail('${data}')" class="bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-tighter">Inspect</button>` }
+            ],
+            order: [[0, 'desc']],
+            pageLength: 20,
+            dom: 'rtip',
+            language: { info: "Mostrando _START_ a _END_ de _TOTAL_ peticiones" }
+        });
 
-            $.get('/api/detail/' + id, function(data) {
-                $('#requestIdLabel').text('ID: ' + id);
-                $('#modalUrl').text(data.url);
-                originalTexts.modalRequest = data.request_body || '// Sin datos enviados';
-                originalTexts.modalResponse = data.response_body || '// Sin respuesta capturada';
-                $('#modalRequest').text(originalTexts.modalRequest);
-                $('#modalResponse').text(originalTexts.modalResponse);
-                $('#typeBadges').html(`<span class="bg-slate-800 text-white text-[9px] px-2 py-1 rounded font-bold uppercase">Status: ${data.status_code || '??'}</span>`);
-            });
-        }
+        $('#filterUrl, #filterRequest, #filterResponse').on('keyup', function() {
+            table.draw();
+        });
 
-        function closeDetail() {
-            $('#detailPanel').removeClass('translate-x-0');
-            $('#overlay').removeClass('opacity-100');
-            setTimeout(() => { $('#detailPanel').addClass('hidden'); $('#overlay').addClass('hidden'); }, 300);
-        }
+        setInterval(() => table.ajax.reload(null, false), 5000);
 
-        function copyRaw(id) {
-            navigator.clipboard.writeText(originalTexts[id]);
-            alert('Copiado al portapapeles');
+        // copy buttons
+        $('#btnCopyReqHeaders').on('click', () => copyText($('#reqHeaders').text()));
+        $('#btnCopyResHeaders').on('click', () => copyText($('#resHeaders').text()));
+        $('#btnCopyReqCookies').on('click', () => copyText($('#reqCookies').text()));
+        $('#btnCopyResCookies').on('click', () => copyText($('#resCookies').text()));
+        $('#btnCopyReqBody').on('click', () => copyText($('#modalRequest').text()));
+        $('#btnCopyResBody').on('click', () => copyText($('#modalResponse').text()));
+        $('#btnPrettyReq').on('click', () => tryPretty('#modalRequest'));
+        $('#btnPrettyRes').on('click', () => tryPretty('#modalResponse'));
+    });
+
+    function showDetail(id) {
+        currentDetail = id;
+        const panel = $('#detailPanel'); const overlay = $('#overlay');
+        panel.removeClass('hidden'); overlay.removeClass('hidden');
+        setTimeout(() => { panel.removeClass('translate-x-full'); overlay.addClass('opacity-100'); }, 10);
+
+        $.get('/api/detail/' + id, function(data) {
+            $('#requestIdLabel').text('ID: ' + id);
+            $('#metaMethod').text(data.method || '');
+            $('#metaHost').text(data.host || '');
+            $('#metaPath').text(data.path || '');
+            $('#metaProto').text(data.protocol || '');
+            $('#metaProto2').text(data.protocol || '');
+            $('#metaTs').text(data.hora || '');
+            $('#metaDuration').text((data.duration ? (data.duration.toFixed ? data.duration.toFixed(3) : data.duration) + ' s' : ''));
+            $('#metaSent').text(data.bytes_sent || 0);
+            $('#metaRecv').text(data.bytes_received || 0);
+            $('#metaClient').text( (data.client_ip || '—') + ':' + (data.client_port || '') );
+            $('#metaServer').text( (data.server_ip || '—') + ':' + (data.server_port || '') );
+            $('#detailStatus').html(`<span class="badge ${data.status_code >=200 && data.status_code<300 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${data.status_code || '—'}</span>`);
+
+            // headers: si vienen como JSON string, parsear; si no, mostrar crudo
+            setPreFromMaybeJson('#reqHeaders', data.request_headers);
+            setPreFromMaybeJson('#resHeaders', data.response_headers);
+
+            // cookies
+            setPreFromMaybeJson('#reqCookies', data.request_cookies);
+            setPreFromMaybeJson('#resCookies', data.response_cookies);
+
+            // bodies
+            $('#modalRequest').text(data.request_body || '// sin request body');
+            $('#modalResponse').text(data.response_body || '// sin response body');
+
+            // raw meta
+            $('#rawMeta').text(JSON.stringify({
+                id: data.id, url: data.url, content_type: data.content_type,
+                protocol: data.protocol, ts_start: data.ts_start
+            }, null, 2));
+        }).fail(function() {
+            alert('No se encontró el request en la DB (puede haberse borrado).');
+            closeDetail();
+        });
+    }
+
+    function closeDetail() {
+        $('#detailPanel').addClass('translate-x-full');
+        $('#overlay').removeClass('opacity-100');
+        setTimeout(() => { $('#detailPanel').addClass('hidden'); $('#overlay').addClass('hidden'); }, 300);
+    }
+
+    function copyText(txt) {
+        navigator.clipboard.writeText(txt).then(()=>alert('Copiado al portapapeles'));
+    }
+
+    function setPreFromMaybeJson(selector, maybe) {
+        let out = '';
+        if (!maybe) { $(selector).text('// vacío'); return; }
+        if (typeof maybe === 'object') {
+            out = JSON.stringify(maybe, null, 2);
+        } else {
+            // intento parsear string a JSON
+            try {
+                out = JSON.stringify(JSON.parse(maybe), null, 2);
+            } catch(e) {
+                out = String(maybe);
+            }
         }
-    </script>
+        $(selector).text(out);
+    }
+
+    function tryPretty(selector) {
+        const txt = $(selector).text();
+        try {
+            const obj = JSON.parse(txt);
+            $(selector).text(JSON.stringify(obj, null, 2));
+        } catch(e) {
+            alert('No es JSON válido.');
+        }
+    }
+</script>
 </body>
 </html>

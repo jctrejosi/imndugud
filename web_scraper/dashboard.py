@@ -1,3 +1,4 @@
+import json
 from flask import Flask, render_template, jsonify
 import sqlite3
 import webbrowser
@@ -25,30 +26,49 @@ def index():
 
 @app.route('/api/traffic')
 def get_traffic():
-    # Añadimos request_body y response_body a la consulta
     sql = """
-        SELECT id, method, status_code, url, 
-        request_body, response_body,
-        datetime(ts_start, 'unixepoch', 'localtime') as hora 
-        FROM requests 
+        SELECT id, method, status_code, url, host, path,
+               ts_start, duration, bytes_sent, bytes_received,
+               content_type, protocol
+        FROM requests
         ORDER BY ts_start DESC
+        LIMIT 1000
     """
     rows = query_db(sql)
-    return jsonify({"data": [dict(row) for row in rows]})
+    # convertir a lista simple y añadir campo 'hora'
+    data = []
+    for r in rows:
+        row = dict(r)
+        row['hora'] = row.get('ts_start') and (  # convertir UNIX -> localtime ISO-like
+            __import__('datetime').datetime.fromtimestamp(row['ts_start']).strftime("%Y-%m-%d %H:%M:%S")
+        ) or ''
+        data.append(row)
+    return jsonify({"data": data})
 
 @app.route('/api/detail/<req_id>')
 def get_detail(req_id):
     row = query_db("SELECT * FROM requests WHERE id = ?", (req_id,), one=True)
-    if not row: return jsonify({"error": "404"}), 404
-
+    if not row:
+        return jsonify({"error": "404"}), 404
     data = dict(row)
-    # Metadatos para ambos cuerpos
-    data['meta'] = {
-        "req_len": len(data.get('request_body') or ''),
-        "res_len": len(data.get('response_body') or '')
-    }
-    return jsonify(data)
 
+    # parsear columnas JSON si existen
+    for col in ('request_headers','response_headers','request_cookies','response_cookies'):
+        raw = data.get(col)
+        if raw is None:
+            data[col] = {}
+            continue
+        if isinstance(raw, (dict,list)):
+            continue
+        try:
+            data[col] = json.loads(raw)
+        except Exception:
+            # dejar como string si no es JSON
+            data[col] = raw
+
+    # añadir metadata legible
+    data['hora'] = data.get('ts_start') and __import__('datetime').datetime.fromtimestamp(data['ts_start']).strftime("%Y-%m-%d %H:%M:%S") or ''
+    return jsonify(data)
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000")
 

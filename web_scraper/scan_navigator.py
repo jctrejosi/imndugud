@@ -29,42 +29,110 @@ from mitmproxy import http, websocket
 import sqlite3, os, time, uuid, json
 
 DB_PATH = os.environ.get("MITM_DB_PATH", "traffic.db")
-_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+
+# Conexión global, PRAGMA configurado solo una vez
+_conn = sqlite3.connect(DB_PATH, check_same_thread=False, isolation_level=None)
 _cur = _conn.cursor()
+_cur.execute("PRAGMA journal_mode=WAL")
+_cur.execute("PRAGMA synchronous=NORMAL")
 
-def response(flow: http.HTTPFlow):
+MAX_BODY = 100000  # truncado seguro
+
+def safe_text(data):
+    if not data:
+        return ""
+    if isinstance(data, bytes):
+        try:
+            data = data.decode("utf-8", errors="replace")
+        except:
+            return "[BINARY]"
+    if len(data) > MAX_BODY:
+        return data[:MAX_BODY] + "...<TRUNCATED>"
+    return data
+
+def store_request(flow, response=True):
     rid = str(uuid.uuid4())
-    
-    # --- CAPTURAR LO QUE SE ENVÍA (REQUEST) ---
-    req_body = ""
-    if flow.request.content:
-        try:
-            if "json" in flow.request.headers.get("content-type", "").lower():
-                req_body = json.dumps(json.loads(flow.request.get_text()), indent=2)
-            else:
-                req_body = flow.request.get_text()
-        except:
-            req_body = "[Cuerpo de petición binario]"
 
-    # --- CAPTURAR LO QUE SE RECIBE (RESPONSE) ---
-    res_body = ""
-    if flow.response and flow.response.content:
-        try:
-            if "json" in flow.response.headers.get("content-type", "").lower():
-                res_body = json.dumps(json.loads(flow.response.get_text()), indent=2)
-            else:
-                res_body = flow.response.get_text()
-        except:
-            res_body = "[Respuesta binaria]"
+    ts_start = flow.request.timestamp_start
+    ts_end = time.time()
+    duration = ts_end - ts_start
+
+    client_ip, client_port = None, None
+    try:
+        client_ip, client_port = flow.client_conn.address
+    except:
+        pass
+
+    server_ip, server_port = None, None
+    try:
+        if flow.server_conn and flow.server_conn.ip_address:
+            server_ip = str(flow.server_conn.ip_address[0])
+            server_port = flow.server_conn.ip_address[1]
+    except:
+        pass
+
+    req_headers = dict(flow.request.headers)
+    res_headers = dict(flow.response.headers) if (flow.response and response) else {}
+    req_cookies = dict(flow.request.cookies)
+    res_cookies = dict(flow.response.cookies) if (flow.response and response) else {}
+
+    req_body = safe_text(flow.request.get_text(strict=False))
+    res_body = safe_text(flow.response.get_text(strict=False)) if (flow.response and response) else ""
+
+    bytes_sent = len(flow.request.raw_content or b"")
+    bytes_received = len(flow.response.raw_content or b"") if (flow.response and response) else 0
+    content_type = flow.response.headers.get("content-type") if (flow.response and response) else None
+    protocol = flow.request.scheme
 
     _cur.execute("""
-        INSERT INTO requests (id, ts_start, ts_end, method, url, status_code, request_body, response_body) 
-        VALUES (?,?,?,?,?,?,?,?)""", 
-        (rid, flow.request.timestamp_start, time.time(), 
-         flow.request.method, flow.request.pretty_url, 
-         flow.response.status_code if flow.response else None,
-         req_body, res_body))
-    _conn.commit()
+        INSERT INTO requests (
+            id, ts_start, ts_end, duration,
+            method, url, host, path, status_code,
+            client_ip, client_port, server_ip, server_port,
+            request_headers, response_headers,
+            request_cookies, response_cookies,
+            request_body, response_body,
+            bytes_sent, bytes_received,
+            content_type, protocol
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        rid, ts_start, ts_end, duration,
+        flow.request.method,
+        flow.request.pretty_url,
+        flow.request.host,
+        flow.request.path,
+        flow.response.status_code if (flow.response and response) else None,
+        client_ip, client_port, server_ip, server_port,
+        json.dumps(req_headers, ensure_ascii=False),
+        json.dumps(res_headers, ensure_ascii=False),
+        json.dumps(req_cookies, ensure_ascii=False),
+        json.dumps(res_cookies, ensure_ascii=False),
+        req_body, res_body,
+        bytes_sent, bytes_received,
+        content_type,
+        protocol
+    ))
+
+def response(flow: http.HTTPFlow):
+    store_request(flow, response=True)
+
+def error(flow: http.HTTPFlow):
+    # Guarda requests que fallaron
+    store_request(flow, response=False)
+
+# ---------- WEBSOCKET ----------
+def websocket_message(flow: websocket.WebSocketData):
+    """
+    flow tiene los mensajes WebSocket. 
+    'content' contiene el payload (bytes o str)
+    """
+    try:
+        data = flow.content
+        if isinstance(data, bytes):
+            data = data.decode("utf-8", errors="replace")
+        print("WS:", data[:200])
+    except Exception as e:
+        print("Error WS:", e)
 '''
 
 def is_admin():
@@ -90,12 +158,40 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     # Esquema definitivo
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS requests (
-            id TEXT PRIMARY KEY, ts_start REAL, ts_end REAL,
-            method TEXT, url TEXT, status_code INTEGER,
-            request_body TEXT, response_body TEXT
-        )
+    CREATE TABLE IF NOT EXISTS requests (
+        id TEXT PRIMARY KEY,
+        ts_start REAL,
+        ts_end REAL,
+        duration REAL,
+        method TEXT,
+        url TEXT,
+        host TEXT,
+        path TEXT,
+        status_code INTEGER,
+
+        client_ip TEXT,
+        client_port INTEGER,
+        server_ip TEXT,
+        server_port INTEGER,
+
+        request_headers TEXT,
+        response_headers TEXT,
+
+        request_cookies TEXT,
+        response_cookies TEXT,
+
+        request_body TEXT,
+        response_body TEXT,
+
+        bytes_sent INTEGER,
+        bytes_received INTEGER,
+        content_type TEXT,
+        protocol TEXT
+    )
     """)
+
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_url ON requests(url)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ts ON requests(ts_start)")
     conn.commit()
     conn.close()
 
@@ -172,12 +268,18 @@ def find_chrome():
 
 def launch_mitm():
     env = os.environ.copy()
-    # Forzamos ruta absoluta para el addon y la DB
     env["MITM_DB_PATH"] = str(DB_PATH.absolute())
     return subprocess.Popen(
-        ["mitmdump", "-s", str(ADDON_PATH.absolute()), "--listen-port", str(PROXY_PORT)],
+        [
+            "mitmdump",
+            "--mode", "regular",
+            "--listen-host", "127.0.0.1",
+            "--listen-port", str(PROXY_PORT),
+            "-s", str(ADDON_PATH.absolute()),
+            "--set", "block_global=false",
+        ],
         env=env,
-        stdout=None, # Ver logs en consola
+        stdout=None,
         stderr=None
     )
 
@@ -232,6 +334,7 @@ def main():
         f"--user-data-dir={PROFILE_DIR}",
         "--ignore-certificate-errors",
         "--no-first-run",
+        "--allow-insecure-localhost",
         "--no-default-browser-check",
         "--disable-background-timer-throttling",
         "--disable-breakpad",
