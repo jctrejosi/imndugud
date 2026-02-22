@@ -2,3 +2,4 @@ chrome_session
 logs
 __pycache__
 db
+venv
