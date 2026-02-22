@@ -34,6 +34,7 @@ _cur = _conn.cursor()
 
 def response(flow: http.HTTPFlow):
     rid = str(uuid.uuid4())
+    # Usamos flow.request.timestamp_start que es más preciso
     _cur.execute("INSERT INTO requests VALUES (?,?,?,?,?,?)", 
                  (rid, flow.request.timestamp_start, time.time(), 
                   flow.request.method, flow.request.pretty_url, 
@@ -41,11 +42,9 @@ def response(flow: http.HTTPFlow):
     _conn.commit()
 
 def websocket_message(flow: http.HTTPFlow):
-    # Captura el último mensaje enviado o recibido
     last_msg = flow.websocket.messages[-1]
     direction = "CLIENT_TO_SERVER" if last_msg.from_client else "SERVER_TO_CLIENT"
     
-    # Intentamos decodificar el contenido, si es binario guardamos el hex
     try:
         content = last_msg.content.decode('utf-8')
     except:
@@ -56,9 +55,6 @@ def websocket_message(flow: http.HTTPFlow):
     _cur.execute("INSERT INTO ws_messages VALUES (?,?,?,?,?)",
                  (str(flow.id), time.time(), direction, content, is_binary))
     _conn.commit()
-    
-    # Imprimir resumen corto en consola
-    print(f"🔌 [WS] {direction[:3]} | {content[:80]}...")
 '''
 
 def is_admin():
@@ -184,7 +180,7 @@ def main():
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
     init_db()
-    ADDON_PATH.write_text(ADDON_CODE)
+    ADDON_PATH.write_text(ADDON_CODE, encoding='utf-8')
 
     # 2. Validación de Admin
     if not is_admin():
