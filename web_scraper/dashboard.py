@@ -25,7 +25,14 @@ def index():
 
 @app.route('/api/traffic')
 def get_traffic():
-    sql = "SELECT id, method, status_code, url, datetime(ts_start, 'unixepoch', 'localtime') as hora FROM requests ORDER BY ts_start DESC"
+    # Añadimos request_body y response_body a la consulta
+    sql = """
+        SELECT id, method, status_code, url, 
+        request_body, response_body,
+        datetime(ts_start, 'unixepoch', 'localtime') as hora 
+        FROM requests 
+        ORDER BY ts_start DESC
+    """
     rows = query_db(sql)
     return jsonify({"data": [dict(row) for row in rows]})
 
