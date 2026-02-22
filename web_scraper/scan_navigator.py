@@ -29,110 +29,83 @@ from mitmproxy import http, websocket
 import sqlite3, os, time, uuid, json
 
 DB_PATH = os.environ.get("MITM_DB_PATH", "traffic.db")
-
-# Conexión global, PRAGMA configurado solo una vez
 _conn = sqlite3.connect(DB_PATH, check_same_thread=False, isolation_level=None)
 _cur = _conn.cursor()
 _cur.execute("PRAGMA journal_mode=WAL")
-_cur.execute("PRAGMA synchronous=NORMAL")
+_cur.execute("PRAGMA synchronous=OFF")
 
-MAX_BODY = 100000  # truncado seguro
+MAX_BODY = 50000
 
 def safe_text(data):
-    if not data:
+    if data is None:
         return ""
     if isinstance(data, bytes):
-        try:
-            data = data.decode("utf-8", errors="replace")
-        except:
-            return "[BINARY]"
-    if len(data) > MAX_BODY:
-        return data[:MAX_BODY] + "...<TRUNCATED>"
-    return data
+        return data.decode("utf-8", errors="replace")[:MAX_BODY]
+    return str(data)[:MAX_BODY]
 
-def store_request(flow, response=True):
-    rid = str(uuid.uuid4())
-
-    ts_start = flow.request.timestamp_start
-    ts_end = time.time()
-    duration = ts_end - ts_start
-
-    client_ip, client_port = None, None
+def store_request(flow, response=True, ws_msg=None):
     try:
-        client_ip, client_port = flow.client_conn.address
-    except:
+        rid = str(uuid.uuid4())
+        
+        if ws_msg:
+            # WebSocket
+            method = "WS-MSG"
+            handshake = getattr(flow, "handshake_flow", None)
+            url = handshake.request.pretty_url if handshake else "wss://websocket-stream"
+            host = handshake.request.host if handshake else "ws-host"
+            path = handshake.request.path if handshake else "/"
+            status_code = 101
+            protocol = "websocket"
+
+            content = safe_text(ws_msg.content)
+
+            if getattr(ws_msg, "from_client", True):
+                req_body, res_body = content, "[WS_SENT_TO_SERVER]"
+            else:
+                req_body, res_body = "[WS_RECEIVED_FROM_SERVER]", content
+
+            content_type = "websocket/text" if getattr(ws_msg, "type", 1) == 1 else "websocket/binary"
+        else:
+            # HTTP
+            method = flow.request.method
+            url = flow.request.pretty_url
+            host = flow.request.host
+            path = flow.request.path
+            status_code = flow.response.status_code if (response and flow.response) else None
+            protocol = flow.request.scheme
+            req_body = safe_text(flow.request.get_text(strict=False)) if hasattr(flow.request, "get_text") else ""
+            res_body = safe_text(flow.response.get_text(strict=False)) if (response and flow.response and hasattr(flow.response, "get_text")) else ""
+            content_type = flow.response.headers.get("content-type") if (response and flow.response) else None
+
+        req_headers = json.dumps(dict(flow.request.headers)) if hasattr(flow, "request") else "{}"
+        res_headers = json.dumps(dict(flow.response.headers)) if (response and hasattr(flow, "response") and flow.response) else "{}"
+
+        _cur.execute("""
+            INSERT INTO requests (
+                id, ts_start, ts_end, duration, method, url, host, path, status_code,
+                client_ip, client_port, server_ip, server_port,
+                request_headers, response_headers, request_cookies, response_cookies,
+                request_body, response_body, bytes_sent, bytes_received, content_type, protocol
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            rid, time.time(), time.time(), 0, method, url, host, path,
+            status_code, "127.0.0.1", 0, "0.0.0.0", 0,
+            req_headers, res_headers, "{}", "{}", 
+            req_body, res_body, len(req_body), len(res_body), content_type, protocol
+        ))
+    except Exception:
         pass
 
-    server_ip, server_port = None, None
-    try:
-        if flow.server_conn and flow.server_conn.ip_address:
-            server_ip = str(flow.server_conn.ip_address[0])
-            server_port = flow.server_conn.ip_address[1]
-    except:
-        pass
-
-    req_headers = dict(flow.request.headers)
-    res_headers = dict(flow.response.headers) if (flow.response and response) else {}
-    req_cookies = dict(flow.request.cookies)
-    res_cookies = dict(flow.response.cookies) if (flow.response and response) else {}
-
-    req_body = safe_text(flow.request.get_text(strict=False))
-    res_body = safe_text(flow.response.get_text(strict=False)) if (flow.response and response) else ""
-
-    bytes_sent = len(flow.request.raw_content or b"")
-    bytes_received = len(flow.response.raw_content or b"") if (flow.response and response) else 0
-    content_type = flow.response.headers.get("content-type") if (flow.response and response) else None
-    protocol = flow.request.scheme
-
-    _cur.execute("""
-        INSERT INTO requests (
-            id, ts_start, ts_end, duration,
-            method, url, host, path, status_code,
-            client_ip, client_port, server_ip, server_port,
-            request_headers, response_headers,
-            request_cookies, response_cookies,
-            request_body, response_body,
-            bytes_sent, bytes_received,
-            content_type, protocol
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, (
-        rid, ts_start, ts_end, duration,
-        flow.request.method,
-        flow.request.pretty_url,
-        flow.request.host,
-        flow.request.path,
-        flow.response.status_code if (flow.response and response) else None,
-        client_ip, client_port, server_ip, server_port,
-        json.dumps(req_headers, ensure_ascii=False),
-        json.dumps(res_headers, ensure_ascii=False),
-        json.dumps(req_cookies, ensure_ascii=False),
-        json.dumps(res_cookies, ensure_ascii=False),
-        req_body, res_body,
-        bytes_sent, bytes_received,
-        content_type,
-        protocol
-    ))
-
+# HTTP
 def response(flow: http.HTTPFlow):
     store_request(flow, response=True)
 
 def error(flow: http.HTTPFlow):
-    # Guarda requests que fallaron
     store_request(flow, response=False)
 
-# ---------- WEBSOCKET ----------
+# WebSocket
 def websocket_message(flow: websocket.WebSocketData):
-    """
-    flow tiene los mensajes WebSocket. 
-    'content' contiene el payload (bytes o str)
-    """
-    try:
-        data = flow.content
-        if isinstance(data, bytes):
-            data = data.decode("utf-8", errors="replace")
-        print("WS:", data[:200])
-    except Exception as e:
-        print("Error WS:", e)
+    store_request(flow, ws_msg=flow)
 '''
 
 def is_admin():
