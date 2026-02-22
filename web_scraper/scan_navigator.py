@@ -23,7 +23,7 @@ RESULTS_DIR.mkdir(exist_ok=True)
 ADDON_PATH = TMPDIR / "mitm_addon.py"
 PROFILE_DIR = (ROOT / "chrome_session").resolve()
 
-# --- Addon de mitmproxy (Misma lógica) ---
+# --- Addon de mitmproxy ---
 ADDON_CODE = r'''
 from mitmproxy import http, websocket
 import sqlite3, os, time, uuid, json
@@ -35,37 +35,35 @@ _cur = _conn.cursor()
 def response(flow: http.HTTPFlow):
     rid = str(uuid.uuid4())
     
-    # Intentar extraer el contenido de la respuesta
-    content = ""
+    # --- CAPTURAR LO QUE SE ENVÍA (REQUEST) ---
+    req_body = ""
+    if flow.request.content:
+        try:
+            if "json" in flow.request.headers.get("content-type", "").lower():
+                req_body = json.dumps(json.loads(flow.request.get_text()), indent=2)
+            else:
+                req_body = flow.request.get_text()
+        except:
+            req_body = "[Cuerpo de petición binario]"
+
+    # --- CAPTURAR LO QUE SE RECIBE (RESPONSE) ---
+    res_body = ""
     if flow.response and flow.response.content:
         try:
-            # Si es JSON, lo decodificamos y re-formateamos para que sea legible
-            if "application/json" in flow.response.headers.get("content-type", "").lower():
-                data = json.loads(flow.response.get_text())
-                content = json.dumps(data, indent=2)
+            if "json" in flow.response.headers.get("content-type", "").lower():
+                res_body = json.dumps(json.loads(flow.response.get_text()), indent=2)
             else:
-                content = flow.response.get_text()
+                res_body = flow.response.get_text()
         except:
-            content = "[Contenido Binario o No Decodificable]"
+            res_body = "[Respuesta binaria]"
 
-    _cur.execute("INSERT INTO requests (id, ts_start, ts_end, method, url, status_code, response_body) VALUES (?,?,?,?,?,?,?)", 
-                 (rid, flow.request.timestamp_start, time.time(), 
-                  flow.request.method, flow.request.pretty_url, 
-                  flow.response.status_code if flow.response else None,
-                  content))
-    _conn.commit()
-
-def websocket_message(flow: http.HTTPFlow):
-    last_msg = flow.websocket.messages[-1]
-    direction = "CLIENT_TO_SERVER" if last_msg.from_client else "SERVER_TO_CLIENT"
-    try:
-        content = last_msg.content.decode('utf-8')
-    except:
-        content = last_msg.content.hex()
-
-    is_binary = 1 if last_msg.type == websocket.MessageType.BINARY else 0
-    _cur.execute("INSERT INTO ws_messages VALUES (?,?,?,?,?)",
-                 (str(flow.id), time.time(), direction, content, is_binary))
+    _cur.execute("""
+        INSERT INTO requests (id, ts_start, ts_end, method, url, status_code, request_body, response_body) 
+        VALUES (?,?,?,?,?,?,?,?)""", 
+        (rid, flow.request.timestamp_start, time.time(), 
+         flow.request.method, flow.request.pretty_url, 
+         flow.response.status_code if flow.response else None,
+         req_body, res_body))
     _conn.commit()
 '''
 
@@ -92,10 +90,10 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     # Esquema definitivo
     conn.execute("""
-        CREATE TABLE requests (
+        CREATE TABLE IF NOT EXISTS requests (
             id TEXT PRIMARY KEY, ts_start REAL, ts_end REAL,
             method TEXT, url TEXT, status_code INTEGER,
-            response_body TEXT
+            request_body TEXT, response_body TEXT
         )
     """)
     conn.commit()

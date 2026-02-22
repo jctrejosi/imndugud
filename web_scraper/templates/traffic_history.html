@@ -7,18 +7,22 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <style>
-        /* Personalización de DataTables para Tailwind */
         .dataTables_wrapper .dataTables_filter input {
             border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.5rem 1rem;
             outline: none; transition: all 0.2s; background: white;
         }
-        .dataTables_wrapper .dataTables_filter input:focus { border-color: #3b82f6; ring: 2px; }
         table.dataTable.no-footer { border-bottom: 1px solid #f1f5f9; }
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
             background: #3b82f6 !important; color: white !important; border: none !important; border-radius: 0.5rem;
         }
-        pre::-webkit-scrollbar { width: 8px; height: 8px; }
-        pre::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        /* SOLUCIÓN AL PROBLEMA DE LA LÍNEA ÚNICA */
+        pre {
+            white-space: pre-wrap;       /* Mantiene saltos de línea y ajusta al ancho */
+            word-wrap: break-word;       /* Rompe palabras largas si es necesario */
+            word-break: break-all;
+        }
+        pre::-webkit-scrollbar { width: 6px; height: 6px; }
+        pre::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen font-sans">
@@ -31,14 +35,12 @@
                 </div>
                 <h1 class="text-xl font-bold tracking-tight text-slate-800">API <span class="text-blue-600">Pulse</span></h1>
             </div>
-            <div class="flex items-center gap-4">
-                <div id="status-indicator" class="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    LIVE CAPTURE
-                </div>
+            <div id="status-indicator" class="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                LIVE CAPTURE
             </div>
         </div>
     </nav>
@@ -56,8 +58,7 @@
                             <th class="px-4 py-4 border-b border-slate-100 text-center">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
         </div>
@@ -77,24 +78,32 @@
 
             <div class="p-6 overflow-y-auto flex-1 space-y-6">
                 <div id="typeBadges" class="flex flex-wrap gap-2"></div>
-
+            
                 <div class="space-y-2">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">API Endpoint</label>
-                    <div class="group relative">
-                        <p id="modalUrl" class="text-xs font-mono text-blue-700 break-all bg-blue-50/50 p-3 rounded-xl border border-blue-100"></p>
-                    </div>
+                    <p id="modalUrl" class="text-xs font-mono text-blue-700 break-all bg-blue-50/50 p-3 rounded-xl border border-blue-100"></p>
                 </div>
-
+            
                 <div class="space-y-2">
                     <div class="flex justify-between items-end">
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Response Body</label>
-                        <button onclick="copyToClipboard()" class="text-[10px] font-bold bg-slate-800 text-white px-3 py-1.5 rounded-lg hover:bg-slate-700 active:scale-95 transition-all">
-                            COPY JSON
-                        </button>
+                        <label class="text-[10px] font-black text-amber-500 uppercase tracking-tighter italic">Payload Enviado (Request)</label>
+                        <div class="flex items-center gap-2">
+                            <span id="reqLen" class="text-[9px] text-slate-400 font-mono"></span>
+                            <button onclick="copyRaw('modalRequest')" class="text-[9px] bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200 font-bold hover:bg-amber-100">COPIAR</button>
+                        </div>
                     </div>
-                    <div class="relative group">
-                        <pre id="modalContent" class="text-[11px] bg-slate-900 text-emerald-400 p-5 rounded-2xl overflow-x-auto font-mono leading-relaxed border-4 border-slate-800 shadow-inner max-h-[500px]"></pre>
+                    <pre id="modalRequest" class="text-[11px] bg-slate-800 text-amber-200 p-4 rounded-xl font-mono max-h-[250px] border border-slate-700 overflow-y-auto"></pre>
+                </div>
+            
+                <div class="space-y-2">
+                    <div class="flex justify-between items-end">
+                        <label class="text-[10px] font-black text-emerald-500 uppercase tracking-tighter italic">Respuesta Recibida (Response)</label>
+                        <div class="flex items-center gap-2">
+                            <span id="resLen" class="text-[9px] text-slate-400 font-mono"></span>
+                            <button onclick="copyRaw('modalResponse')" class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded border border-emerald-200 font-bold hover:bg-emerald-100">COPIAR</button>
+                        </div>
                     </div>
+                    <pre id="modalResponse" class="text-[11px] bg-slate-900 text-emerald-400 p-4 rounded-xl font-mono max-h-[400px] border border-slate-800 shadow-inner overflow-y-auto"></pre>
                 </div>
             </div>
         </div>
@@ -123,16 +132,15 @@
                     }},
                     { data: 'url', className: 'px-4 py-4 max-w-[300px] md:max-w-md truncate font-medium text-slate-600', render: data => data },
                     { data: 'id', className: 'text-center', render: data => {
-                        return `<button onclick="showDetail('${data}')" class="bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all">INSPECT</button>`;
+                        return `<button onclick="showDetail('${data}')" class="bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-tighter">Inspect</button>`;
                     }}
                 ],
                 order: [[0, 'desc']],
                 pageLength: 15,
                 dom: '<"flex flex-col md:flex-row justify-between p-4 gap-4"f>rt<"flex justify-between p-4 items-center text-xs text-slate-500"ip>',
-                language: { search: "", searchPlaceholder: "Filter requests..." }
+                language: { search: "", searchPlaceholder: "Filtrar tráfico..." }
             });
 
-            // Refresh automático cada 5 segundos
             setInterval(() => table.ajax.reload(null, false), 5000);
         });
 
@@ -142,58 +150,53 @@
             
             panel.removeClass('hidden');
             overlay.removeClass('hidden');
-            
             setTimeout(() => {
                 panel.addClass('translate-x-0');
                 overlay.addClass('opacity-100');
             }, 10);
 
-            $('#modalContent').text('Loading payload...');
-            $('#typeBadges').html('');
             $('#requestIdLabel').text('ID: ' + id);
+            $('#modalUrl').text('Cargando...');
+            $('#modalRequest, #modalResponse').text('...');
+            $('#typeBadges').html('');
 
             $.get('/api/detail/' + id, function(data) {
                 $('#modalUrl').text(data.url);
-                
-                // Generar Badges dinámicos
-                let badges = '';
-                if (data.meta.is_encrypted) {
-                    badges += '<span class="bg-rose-100 text-rose-700 text-[10px] px-3 py-1.5 rounded-full font-black border border-rose-200 uppercase tracking-tighter italic">⚠️ Encrypted / Binary</span>';
-                } else if (data.meta.is_json) {
-                    badges += '<span class="bg-emerald-100 text-emerald-700 text-[10px] px-3 py-1.5 rounded-full font-black border border-emerald-200 uppercase tracking-tighter">JSON Valid</span>';
-                } else {
-                    badges += '<span class="bg-slate-100 text-slate-700 text-[10px] px-3 py-1.5 rounded-full font-black border border-slate-200 uppercase tracking-tighter">Raw Text</span>';
-                }
-                badges += `<span class="bg-blue-50 text-blue-600 text-[10px] px-3 py-1.5 rounded-full font-bold border border-blue-100">${data.meta.length.toLocaleString()} bytes</span>`;
-                
+                $('#reqLen').text((data.meta.req_len || 0) + ' bytes');
+                $('#resLen').text((data.meta.res_len || 0) + ' bytes');
+
+                let badges = `<span class="bg-slate-800 text-white text-[9px] px-2 py-1 rounded font-bold">STATUS: ${data.status_code || '??'}</span>`;
                 $('#typeBadges').html(badges);
 
-                // Formatear contenido
-                if (data.response_body) {
-                    $('#modalContent').text(data.response_body);
-                } else {
-                    $('#modalContent').html('<span class="text-slate-500 italic">// No response body captured</span>');
-                }
+                // IMPORTANTE: El texto se inserta respetando los saltos de línea del backend
+                $('#modalRequest').text(data.request_body || '// Sin datos enviados');
+                $('#modalResponse').text(data.response_body || '// Sin respuesta capturada');
             });
         }
 
         function closeDetail() {
-            const panel = $('#detailPanel');
-            const overlay = $('#overlay');
-            
-            panel.removeClass('translate-x-0');
-            overlay.removeClass('opacity-100');
-            
+            $('#detailPanel').removeClass('translate-x-0');
+            $('#overlay').removeClass('opacity-100');
             setTimeout(() => {
-                panel.addClass('hidden');
-                overlay.addClass('hidden');
+                $('#detailPanel').addClass('hidden');
+                $('#overlay').addClass('hidden');
             }, 300);
         }
 
-        function copyToClipboard() {
-            const text = $('#modalContent').text();
+        function copyRaw(elementId) {
+            const text = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(text).then(() => {
-                alert('Payload copied to clipboard!');
+                const btn = event.target;
+                const originalText = btn.innerText;
+                btn.innerText = "¡COPIADO!";
+                btn.classList.replace('bg-emerald-50', 'bg-emerald-500');
+                btn.classList.replace('text-emerald-600', 'text-white');
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.replace('bg-emerald-500', 'bg-emerald-50');
+                    btn.classList.replace('text-white', 'text-emerald-600');
+                }, 1000);
             });
         }
     </script>

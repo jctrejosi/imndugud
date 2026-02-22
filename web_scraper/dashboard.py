@@ -32,32 +32,14 @@ def get_traffic():
 @app.route('/api/detail/<req_id>')
 def get_detail(req_id):
     row = query_db("SELECT * FROM requests WHERE id = ?", (req_id,), one=True)
-    if not row:
-        return jsonify({"error": "404"}), 404
-    
+    if not row: return jsonify({"error": "404"}), 404
+
     data = dict(row)
-    body = data.get('response_body', '')
-
-    # Lógica para detectar cifrado o formato
-    is_json = False
-    is_encrypted = False
-
-    if body:
-        body_trimmed = body.strip()
-        # Verificar si es JSON
-        if (body_trimmed.startswith('{') and body_trimmed.endswith('}')) or \
-           (body_trimmed.startswith('[') and body_trimmed.endswith(']')):
-            is_json = True
-        # Verificar si parece cifrado (muchos caracteres alfanuméricos sin espacios, terminando en ==, etc)
-        elif len(body_trimmed) > 50 and ' ' not in body_trimmed:
-            is_encrypted = True
-
+    # Metadatos para ambos cuerpos
     data['meta'] = {
-        "is_json": is_json,
-        "is_encrypted": is_encrypted,
-        "length": len(body)
+        "req_len": len(data.get('request_body') or ''),
+        "res_len": len(data.get('response_body') or '')
     }
-    
     return jsonify(data)
 
 def open_browser():
