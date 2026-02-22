@@ -3,283 +3,260 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>imnd ugud | Traffic Analyzer</title>
+    <title>API Pulse | Expert Traffic Analyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        :root { --primary: #3b82f6; --bg-main: #f8fafc; }
         .dataTables_wrapper .dataTables_filter { display: none; }
         .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-            background: #3b82f6 !important; color: white !important; border: none !important; border-radius: 0.5rem;
+            background: var(--primary) !important; color: white !important; border: none !important; border-radius: 0.5rem;
         }
-        pre { white-space: pre-wrap; word-wrap: break-word; word-break: break-all; }
-        pre::-webkit-scrollbar { width: 6px; height: 6px; }
-        pre::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
-        mark { background-color: #fbbf24; color: #000; border-radius: 2px; }
-        .filter-input { transition: all 0.2s; border: 1px solid #e2e8f0; }
-        .filter-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
-        .k-v { display:flex; gap:0.5rem; align-items:center; }
-        .badge { padding:0.2rem .5rem; border-radius:.35rem; font-size:.7rem; font-weight:700; }
-        .meta-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:.5rem; }
-        .section { border:1px solid #e6edf3; padding:.6rem; border-radius:.6rem; background:#fff; }
-        .small { font-size:.75rem; color:#475569; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace; font-size: .9rem; }
+        /* Scrollbar estilo moderno */
+        pre::-webkit-scrollbar { width: 4px; height: 4px; }
+        pre::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .tab-active { border-bottom: 2px solid var(--primary); color: var(--primary); font-weight: 700; }
+        .section-card { border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fff; overflow: hidden; transition: all 0.2s; }
+        .section-card:hover { border-color: #cbd5e1; }
+        
+        .mono { font-family: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace; font-size: 0.85rem; }
+        .json-key { color: #be185d; } /* Rosa fuerte para llaves */
+        .json-val { color: #059669; } /* Esmeralda para valores */
+        
+        /* Animación de entrada para el panel */
+        #detailPanel { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen font-sans">
 
-<nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 sticky top-0 z-40">
+<nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-3 sticky top-0 z-40">
     <div class="flex justify-between items-center max-w-7xl mx-auto">
         <div class="flex items-center gap-3">
-            <div class="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-200">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
+                <i data-lucide="activity" class="w-5 h-5 text-white"></i>
             </div>
-            <h1 class="text-xl font-bold tracking-tight text-slate-800">Traffic Analyzer</h1>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-800 leading-none">Traffic Analyzer</h1>
+                <span class="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Enterprise Debugger</span>
+            </div>
         </div>
-        <div id="status-indicator" class="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-            LIVE CAPTURE
+        <div id="status-indicator" class="flex items-center gap-2 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            SYSTEM ONLINE
         </div>
     </div>
 </nav>
 
 <main class="max-w-7xl mx-auto p-6">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-            <label class="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Filtrar por URL / Endpoint</label>
-            <input type="text" id="filterUrl" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: /api/v1/user...">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="relative">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+            <input type="text" id="filterUrl" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-100 outline-none text-sm transition-all" placeholder="Filter by endpoint...">
         </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-            <label class="text-[10px] font-bold text-amber-500 uppercase mb-2 block">Buscar en Contenido Request</label>
-            <input type="text" id="filterRequest" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: user_id, token...">
+        <div class="relative">
+            <i data-lucide="arrow-up-right" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500"></i>
+            <input type="text" id="filterRequest" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-100 outline-none text-sm transition-all" placeholder="Search in request...">
         </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-            <label class="text-[10px] font-bold text-emerald-500 uppercase mb-2 block">Buscar en Contenido Response</label>
-            <input type="text" id="filterResponse" class="filter-input w-full px-3 py-2 rounded-lg text-sm outline-none" placeholder="Ej: success, balance...">
+        <div class="relative">
+            <i data-lucide="arrow-down-left" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500"></i>
+            <input type="text" id="filterResponse" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-100 outline-none text-sm transition-all" placeholder="Search in response...">
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-200 overflow-hidden">
-        <div class="p-6">
-            <table id="apiTable" class="w-full text-left text-sm border-separate border-spacing-y-0">
-                <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-widest">
-                    <tr>
-                        <th class="px-4 py-4 border-b border-slate-100">Timestamp</th>
-                        <th class="px-4 py-4 border-b border-slate-100">Method</th>
-                        <th class="px-4 py-4 border-b border-slate-100">Status</th>
-                        <th class="px-4 py-4 border-b border-slate-100">Endpoint</th>
-                        <th class="px-4 py-4 border-b border-slate-100 text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+    <div class="section-card shadow-sm border-slate-200">
+        <table id="apiTable" class="w-full text-left text-sm">
+            <thead class="bg-slate-50/50 text-slate-400 uppercase text-[10px] font-bold tracking-widest">
+                <tr>
+                    <th class="px-6 py-4 border-b border-slate-100">Timestamp</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Method</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Status</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Endpoint</th>
+                    <th class="px-6 py-4 border-b border-slate-100">Latency</th>
+                    <th class="px-6 py-4 border-b border-slate-100 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100"></tbody>
+        </table>
     </div>
 </main>
 
-<!-- detalle modal ampliado -->
-<div id="detailPanel" class="fixed inset-y-0 right-0 w-full max-w-3xl bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 border-l border-slate-200 hidden">
-    <div class="h-full flex flex-col">
-        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+<div id="detailPanel" class="fixed inset-y-0 right-0 w-full max-w-4xl bg-white shadow-2xl transform translate-x-full z-50 flex flex-col hidden">
+    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
+        <div class="flex items-center gap-4">
+            <button onclick="closeDetail()" class="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
             <div>
-                <h2 class="text-lg font-bold text-slate-800 tracking-tight">Request Details</h2>
-                <p class="text-[11px] text-slate-400 font-mono mt-1" id="requestIdLabel"></p>
+                <h2 class="text-base font-bold text-slate-800" id="detailMethodUrl"></h2>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <span id="detailId" class="text-[10px] font-mono text-slate-400"></span>
+                    <span id="detailStatus" class="px-2 py-0.5 rounded text-[10px] font-bold"></span>
+                </div>
             </div>
-            <div class="flex items-center gap-3">
-                <div id="detailStatus" class="text-sm font-bold"></div>
-                <button onclick="closeDetail()" class="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+        </div>
+        <div class="flex gap-2">
+            <button id="btnCopyCurl" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-[11px] font-bold rounded-lg hover:bg-slate-800 transition-all">
+                <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Copy cURL
+            </button>
+        </div>
+    </div>
+
+    <div class="flex px-6 border-b border-slate-100 bg-slate-50/30">
+        <button onclick="switchTab('headers')" id="tab-headers" class="px-4 py-3 text-xs uppercase tracking-wider font-bold tab-active">Headers</button>
+        <button onclick="switchTab('body')" id="tab-body" class="px-4 py-3 text-xs uppercase tracking-wider font-bold text-slate-400">Payload & Body</button>
+        <button onclick="switchTab('cookies')" id="tab-cookies" class="px-4 py-3 text-xs uppercase tracking-wider font-bold text-slate-400">Cookies</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-6 bg-slate-50/20">
+        
+        <div id="content-headers" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="section-card p-4">
+                    <h4 class="text-[10px] font-black uppercase text-slate-400 mb-3 flex items-center gap-2"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> Request Headers</h4>
+                    <pre id="reqHeaders" class="mono text-[11px] leading-relaxed"></pre>
+                </div>
+                <div class="section-card p-4">
+                    <h4 class="text-[10px] font-black uppercase text-slate-400 mb-3 flex items-center gap-2"><i data-lucide="arrow-down-left" class="w-3 h-3"></i> Response Headers</h4>
+                    <pre id="resHeaders" class="mono text-[11px] leading-relaxed"></pre>
+                </div>
             </div>
         </div>
 
-        <div class="p-6 overflow-y-auto flex-1 space-y-5">
-            <div class="meta-grid">
-                <div class="section">
-                    <div class="k-v"><span class="small">method</span><div class="badge bg-slate-100 text-slate-700 ml-auto" id="metaMethod"></div></div>
-                    <div class="k-v mt-2"><span class="small">host</span><div class="mono ml-auto" id="metaHost"></div></div>
-                    <div class="k-v mt-2"><span class="small">path</span><div class="mono ml-auto" id="metaPath"></div></div>
-                    <div class="k-v mt-2"><span class="small">protocol</span><div class="ml-auto" id="metaProto"></div></div>
+        <div id="content-body" class="space-y-6 hidden">
+            <div class="section-card">
+                <div class="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center">
+                    <span class="text-[10px] font-black uppercase text-slate-400 italic">Request Payload</span>
+                    <button onclick="copyText($('#modalRequest').text())" class="text-[10px] font-bold text-blue-600">COPY</button>
                 </div>
-
-                <div class="section">
-                    <div class="k-v"><span class="small">timestamp start</span><div class="mono ml-auto" id="metaTs"></div></div>
-                    <div class="k-v mt-2"><span class="small">duration</span><div class="ml-auto" id="metaDuration"></div></div>
-                    <div class="k-v mt-2"><span class="small">bytes sent</span><div class="mono ml-auto" id="metaSent"></div></div>
-                    <div class="k-v mt-2"><span class="small">bytes recv</span><div class="mono ml-auto" id="metaRecv"></div></div>
-                </div>
-
-                <div class="section">
-                    <div class="k-v"><span class="small">client</span><div class="mono ml-auto" id="metaClient"></div></div>
-                    <div class="k-v mt-2"><span class="small">server</span><div class="mono ml-auto" id="metaServer"></div></div>
-                    <div class="k-v mt-2"><span class="small">content-type</span><div class="ml-auto" id="metaType"></div></div>
-                    <div class="k-v mt-2"><span class="small">protocol</span><div class="ml-auto" id="metaProto2"></div></div>
-                </div>
+                <pre id="modalRequest" class="p-4 mono text-[12px] max-h-64 overflow-auto bg-white"></pre>
             </div>
-
-            <div class="section">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="font-bold">Headers</h3>
-                    <div class="flex gap-2">
-                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyReqHeaders">Copiar request</button>
-                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyResHeaders">Copiar response</button>
-                    </div>
+            <div class="section-card">
+                <div class="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center">
+                    <span class="text-[10px] font-black uppercase text-slate-400 italic">Response Body</span>
+                    <button onclick="copyText($('#modalResponse').text())" class="text-[10px] font-bold text-blue-600">COPY</button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <div class="small mb-1">request headers</div>
-                        <pre id="reqHeaders" class="mono section max-h-48 overflow-auto"></pre>
-                    </div>
-                    <div>
-                        <div class="small mb-1">response headers</div>
-                        <pre id="resHeaders" class="mono section max-h-48 overflow-auto"></pre>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="font-bold">Cookies</h3>
-                    <div class="flex gap-2">
-                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyReqCookies">Copiar cookies req</button>
-                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnCopyResCookies">Copiar cookies res</button>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <pre id="reqCookies" class="mono section max-h-32 overflow-auto"></pre>
-                    <pre id="resCookies" class="mono section max-h-32 overflow-auto"></pre>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-bold">Request body</h3>
-                    <div class="flex gap-2">
-                        <button class="px-2 py-1 text-xs bg-amber-50 text-amber-700 rounded" id="btnCopyReqBody">Copiar</button>
-                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnPrettyReq">Formatear JSON</button>
-                    </div>
-                </div>
-                <pre id="modalRequest" class="mono section max-h-44 overflow-auto"></pre>
-            </div>
-
-            <div class="section">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-bold">Response body</h3>
-                    <div class="flex gap-2">
-                        <button class="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded" id="btnCopyResBody">Copiar</button>
-                        <button class="px-2 py-1 text-xs bg-slate-100 rounded" id="btnPrettyRes">Formatear JSON</button>
-                    </div>
-                </div>
-                <pre id="modalResponse" class="mono section max-h-72 overflow-auto"></pre>
-            </div>
-
-            <div class="section small">
-                <div class="font-bold mb-2">Raw / metadata</div>
-                <pre id="rawMeta" class="mono max-h-36 overflow-auto"></pre>
+                <pre id="modalResponse" class="p-4 mono text-[12px] max-h-[500px] overflow-auto bg-white"></pre>
             </div>
         </div>
+
+        <div id="content-cookies" class="space-y-6 hidden">
+             <div class="section-card p-4">
+                <h4 class="text-[10px] font-black uppercase text-slate-400 mb-2">Cookies Data</h4>
+                <div class="grid grid-cols-1 gap-4">
+                    <pre id="reqCookies" class="mono text-[11px] bg-slate-50 p-3 rounded-lg"></pre>
+                    <pre id="resCookies" class="mono text-[11px] bg-slate-50 p-3 rounded-lg"></pre>
+                </div>
+             </div>
+        </div>
+
     </div>
 </div>
 
-<div id="overlay" onclick="closeDetail()" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+<div id="overlay" onclick="closeDetail()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
 
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
 <script>
     let table;
-    let currentDetail = null;
+    
     $(document).ready(function() {
+        lucide.createIcons();
+        
+        // Filtros DataTables
         $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
             const row = table.row(dataIndex).data();
-            const filterUrl = $('#filterUrl').val().toLowerCase();
-            const filterReq = $('#filterRequest').val().toLowerCase();
-            const filterRes = $('#filterResponse').val().toLowerCase();
-            const matchUrl = (row.url || "").toLowerCase().includes(filterUrl);
-            const matchReq = (row.request_body || "").toLowerCase().includes(filterReq);
-            const matchRes = (row.response_body || "").toLowerCase().includes(filterRes);
-            return matchUrl && matchReq && matchRes;
+            const fUrl = $('#filterUrl').val().toLowerCase();
+            const fReq = $('#filterRequest').val().toLowerCase();
+            const fRes = $('#filterResponse').val().toLowerCase();
+            
+            return (row.url || "").toLowerCase().includes(fUrl) &&
+                   (row.request_body || "").toLowerCase().includes(fReq) &&
+                   (row.response_body || "").toLowerCase().includes(fRes);
         });
 
         table = $('#apiTable').DataTable({
             ajax: '/api/traffic',
             columns: [
-                { data: 'hora', className: 'px-4 py-4 text-slate-500 font-mono text-[11px]' },
+                { data: 'hora', className: 'px-6 py-4 font-mono text-[11px] text-slate-400' },
                 { data: 'method', render: data => {
-                    const style = data === 'POST' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
-                    return `<span class="px-2 py-1 rounded-md text-[9px] font-black tracking-widest ${style}">${data}</span>`;
+                    const colors = { 'GET': 'bg-blue-50 text-blue-600', 'POST': 'bg-amber-50 text-amber-600', 'PUT': 'bg-indigo-50 text-indigo-600', 'DELETE': 'bg-rose-50 text-rose-600' };
+                    return `<span class="px-2 py-1 rounded text-[10px] font-black tracking-widest ${colors[data] || 'bg-slate-100'}">${data}</span>`;
                 }},
                 { data: 'status_code', render: data => {
-                    const color = data >= 200 && data < 300 ? 'text-emerald-600' : 'text-rose-500';
+                    const color = data >= 200 && data < 300 ? 'text-emerald-500' : 'text-rose-500';
                     return `<span class="font-bold font-mono ${color}">${data || '---'}</span>`;
                 }},
-                { data: 'url', className: 'px-4 py-4 max-w-[300px] md:max-w-md truncate font-medium text-slate-600' },
-                { data: 'id', className: 'text-center', render: data => `<button onclick="showDetail('${data}')" class="bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-tighter">Inspect</button>` }
+                { data: 'url', className: 'px-6 py-4 max-w-xs truncate font-medium text-slate-700' },
+                { data: 'duration', render: data => {
+                    const ms = data * 1000;
+                    const color = ms > 500 ? 'text-rose-500 font-bold' : (ms > 200 ? 'text-amber-500' : 'text-slate-400');
+                    return `<span class="text-[11px] font-mono ${color}">${ms.toFixed(0)}ms</span>`;
+                }},
+                { data: 'id', className: 'text-right px-6', render: id => `<button onclick="showDetail('${id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs">INSPECT</button>` }
             ],
             order: [[0, 'desc']],
-            pageLength: 20,
             dom: 'rtip',
-            language: { info: "Mostrando _START_ a _END_ de _TOTAL_ peticiones" }
+            pageLength: 15
         });
 
-        $('#filterUrl, #filterRequest, #filterResponse').on('keyup', function() {
-            table.draw();
-        });
-
+        $('#filterUrl, #filterRequest, #filterResponse').on('keyup', () => table.draw());
         setInterval(() => table.ajax.reload(null, false), 5000);
-
-        // copy buttons
-        $('#btnCopyReqHeaders').on('click', () => copyText($('#reqHeaders').text()));
-        $('#btnCopyResHeaders').on('click', () => copyText($('#resHeaders').text()));
-        $('#btnCopyReqCookies').on('click', () => copyText($('#reqCookies').text()));
-        $('#btnCopyResCookies').on('click', () => copyText($('#resCookies').text()));
-        $('#btnCopyReqBody').on('click', () => copyText($('#modalRequest').text()));
-        $('#btnCopyResBody').on('click', () => copyText($('#modalResponse').text()));
-        $('#btnPrettyReq').on('click', () => tryPretty('#modalRequest'));
-        $('#btnPrettyRes').on('click', () => tryPretty('#modalResponse'));
     });
 
     function showDetail(id) {
-        currentDetail = id;
-        const panel = $('#detailPanel'); const overlay = $('#overlay');
+        const panel = $('#detailPanel');
+        const overlay = $('#overlay');
         panel.removeClass('hidden'); overlay.removeClass('hidden');
+        
         setTimeout(() => { panel.removeClass('translate-x-full'); overlay.addClass('opacity-100'); }, 10);
 
         $.get('/api/detail/' + id, function(data) {
-            $('#requestIdLabel').text('ID: ' + id);
-            $('#metaMethod').text(data.method || '');
-            $('#metaHost').text(data.host || '');
-            $('#metaPath').text(data.path || '');
-            $('#metaProto').text(data.protocol || '');
-            $('#metaProto2').text(data.protocol || '');
-            $('#metaTs').text(data.hora || '');
-            $('#metaDuration').text((data.duration ? (data.duration.toFixed ? data.duration.toFixed(3) : data.duration) + ' s' : ''));
-            $('#metaSent').text(data.bytes_sent || 0);
-            $('#metaRecv').text(data.bytes_received || 0);
-            $('#metaClient').text( (data.client_ip || '—') + ':' + (data.client_port || '') );
-            $('#metaServer').text( (data.server_ip || '—') + ':' + (data.server_port || '') );
-            $('#detailStatus').html(`<span class="badge ${data.status_code >=200 && data.status_code<300 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${data.status_code || '—'}</span>`);
+            $('#detailMethodUrl').text(`${data.method} ${data.path}`);
+            $('#detailId').text(id);
+            
+            const statusColor = data.status_code >= 200 && data.status_code < 300 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+            $('#detailStatus').text(data.status_code).attr('class', `px-2 py-0.5 rounded text-[10px] font-bold ${statusColor}`);
 
-            // headers: si vienen como JSON string, parsear; si no, mostrar crudo
-            setPreFromMaybeJson('#reqHeaders', data.request_headers);
-            setPreFromMaybeJson('#resHeaders', data.response_headers);
+            // Cargar datos
+            setFormattedJson('#reqHeaders', data.request_headers);
+            setFormattedJson('#resHeaders', data.response_headers);
+            setFormattedJson('#modalRequest', data.request_body);
+            setFormattedJson('#modalResponse', data.response_body);
+            setFormattedJson('#reqCookies', data.request_cookies);
+            setFormattedJson('#resCookies', data.response_cookies);
 
-            // cookies
-            setPreFromMaybeJson('#reqCookies', data.request_cookies);
-            setPreFromMaybeJson('#resCookies', data.response_cookies);
-
-            // bodies
-            $('#modalRequest').text(data.request_body || '// sin request body');
-            $('#modalResponse').text(data.response_body || '// sin response body');
-
-            // raw meta
-            $('#rawMeta').text(JSON.stringify({
-                id: data.id, url: data.url, content_type: data.content_type,
-                protocol: data.protocol, ts_start: data.ts_start
-            }, null, 2));
-        }).fail(function() {
-            alert('No se encontró el request en la DB (puede haberse borrado).');
-            closeDetail();
+            // cURL simple generator
+            $('#btnCopyCurl').off().on('click', () => {
+                const curl = `curl -X ${data.method} "${data.url}"`;
+                copyText(curl);
+            });
         });
+    }
+
+    function switchTab(tab) {
+        $('[id^="content-"]').addClass('hidden');
+        $('[id^="tab-"]').removeClass('tab-active text-blue-600').addClass('text-slate-400');
+        
+        $(`#content-${tab}`).removeClass('hidden');
+        $(`#tab-${tab}`).addClass('tab-active text-blue-600').removeClass('text-slate-400');
+    }
+
+    function setFormattedJson(selector, val) {
+        if (!val) { $(selector).html('<span class="text-slate-300">// empty</span>'); return; }
+        try {
+            const obj = typeof val === 'string' ? JSON.parse(val) : val;
+            const jsonStr = JSON.stringify(obj, null, 2);
+            // Highlighting básico
+            const highlighted = jsonStr.replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+                                     .replace(/: "(.*)"/g, ': <span class="json-val">"$1"</span>');
+            $(selector).html(highlighted);
+        } catch(e) {
+            $(selector).text(val);
+        }
     }
 
     function closeDetail() {
@@ -289,33 +266,7 @@
     }
 
     function copyText(txt) {
-        navigator.clipboard.writeText(txt).then(()=>alert('Copiado al portapapeles'));
-    }
-
-    function setPreFromMaybeJson(selector, maybe) {
-        let out = '';
-        if (!maybe) { $(selector).text('// vacío'); return; }
-        if (typeof maybe === 'object') {
-            out = JSON.stringify(maybe, null, 2);
-        } else {
-            // intento parsear string a JSON
-            try {
-                out = JSON.stringify(JSON.parse(maybe), null, 2);
-            } catch(e) {
-                out = String(maybe);
-            }
-        }
-        $(selector).text(out);
-    }
-
-    function tryPretty(selector) {
-        const txt = $(selector).text();
-        try {
-            const obj = JSON.parse(txt);
-            $(selector).text(JSON.stringify(obj, null, 2));
-        } catch(e) {
-            alert('No es JSON válido.');
-        }
+        navigator.clipboard.writeText(txt).then(() => alert('Copiado'));
     }
 </script>
 </body>
