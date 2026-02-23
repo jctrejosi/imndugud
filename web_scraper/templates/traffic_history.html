@@ -190,15 +190,32 @@
         lucide.createIcons();
         
         // Filtros DataTables
+        // Filtros DataTables inteligentes
         $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-            const row = table.row(dataIndex).data();
             const fUrl = $('#filterUrl').val().toLowerCase();
             const fReq = $('#filterRequest').val().toLowerCase();
             const fRes = $('#filterResponse').val().toLowerCase();
+
+            // Si estamos en la tabla HTTP
+            if (settings.nTable.id === 'apiTable') {
+                const row = table.row(dataIndex).data();
+                if (!row) return true;
+                return (row.url || "").toLowerCase().includes(fUrl) &&
+                    (row.request_body || "").toLowerCase().includes(fReq) &&
+                    (row.response_body || "").toLowerCase().includes(fRes);
+            }
             
-            return (row.url || "").toLowerCase().includes(fUrl) &&
-                   (row.request_body || "").toLowerCase().includes(fReq) &&
-                   (row.response_body || "").toLowerCase().includes(fRes);
+            // Si estamos en la tabla WebSockets
+            if (settings.nTable.id === 'wsTable') {
+                const row = wsTable.row(dataIndex).data();
+                if (!row) return true;
+                // En WS filtramos el contenido en los tres campos por comodidad
+                const content = (row.content || "").toLowerCase();
+                const flow = (row.flow_url || "").toLowerCase();
+                return content.includes(fRes) && content.includes(fReq) && flow.includes(fUrl);
+            }
+
+            return true;
         });
 
         table = $('#apiTable').DataTable({
@@ -226,7 +243,10 @@
             pageLength: 15
         });
 
-        $('#filterUrl, #filterRequest, #filterResponse').on('keyup', () => table.draw());
+        $('#filterUrl, #filterRequest, #filterResponse').on('keyup', () => {
+            table.draw();
+            if (wsTable) wsTable.draw();
+        });
         setInterval(() => table.ajax.reload(null, false), 5000);
     });
 
@@ -327,9 +347,14 @@
             ],
             order: [[0, 'desc']],
             dom: 'rtip',
+            processing: true,
             pageLength: 15
         });
-        setInterval(() => wsTable.ajax.reload(null, false), 3000);
+        setInterval(() => {
+            if ($('#section-ws').is(':visible')) {
+                wsTable.ajax.reload(null, false);
+            }
+        }, 5000);
     }
 
     function showWsDetail(id) {
@@ -355,7 +380,7 @@
     function closeDetail() {
         $('#detailPanel').addClass('translate-x-full');
         $('#overlay').removeClass('opacity-100');
-        setTimeout(() => { 
+        setTimeout(() => {
             $('#detailPanel').addClass('hidden'); 
             $('#overlay').addClass('hidden');
             $('#tab-headers, #tab-cookies').removeClass('hidden'); // Resetear para HTTP
