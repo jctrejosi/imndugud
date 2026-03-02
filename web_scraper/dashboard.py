@@ -52,7 +52,7 @@ def get_traffic():
         data.append(row)
     return jsonify({"data": data})
 
-# WS tráfico
+# WebSocket tráfico
 @app.route('/api/ws')
 def get_ws():
     sql = """
@@ -92,7 +92,7 @@ def get_detail(req_id):
     data['hora'] = format_time(data.get('ts_start'))
     return jsonify(data)
 
-# detalle WS
+# detalle WebSocket
 @app.route('/api/ws_detail/<msg_id>')
 def get_ws_detail(msg_id):
     row = query_db(WS_DB_PATH, "SELECT * FROM ws_messages WHERE id = ?", (msg_id,), one=True)
